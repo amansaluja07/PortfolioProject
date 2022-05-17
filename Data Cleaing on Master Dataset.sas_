@@ -1,0 +1,192 @@
+libname mylib "/home/u60695761/Ban 110/Project";
+
+/* Creating Suicide Rate dataset*/
+proc import 
+out  = mylib.suicide_rate
+datafile="/home/u60695761/Ban 110/Project/master_edited.csv"
+DBMS=CSV REPLACE;
+getnames=yes;
+run;
+
+title'First 5 observation from the dataset (obs=5)';
+proc print data=mylib.suicide_rate(obs=5);
+run;
+
+proc contents data=mylib.suicide_rate;
+run;
+
+/* Finding frequency for 'generation' categorical value variable to detect errors*/
+title "frequencies for generation";
+proc freq data= mylib.suicide_rate;
+table generation/ nocum nopercent;
+run;
+
+data suicide_rate;
+set mylib.suicide_rate;
+id = _n_ ;
+generation = upcase(generation);
+run;
+
+data _null_;
+set  mylib.suicide_rate;
+id = _n_ ;
+file print;
+if  missing(generation) then put 
+        id= "is missing"; 
+run;
+
+proc freq data= suicide_rate;
+table generation/ nocum nopercent;
+run;
+
+/* Finding frequency for 'sex' categorical value variable to detect errors*/
+title "frequencies for generation";
+proc freq data= mylib.suicide_rate;
+table sex/ nocum nopercent;
+run;
+
+/*Using a DATA NULL Step to Detect Invalid Character Data */
+data _null_;
+set suicide_rate;
+file print;
+if  missing(sex) then put 
+        id= "is missing"; 
+    else if sex not in ('male', 'female') then put 
+        id= "has an invalid gender value: " 
+        sex= ; 
+run;
+
+
+data suicide_rate ;
+set suicide_rate;
+if sex='f' then sex='female';
+run;
+
+data suicide_rate;
+set suicide_rate;
+file print;
+if sex not in ('male', 'female') 
+then delete;
+run;
+
+title "frequencies for generation";
+proc freq data= suicide_rate;
+table sex/ nocum nopercent;
+run;
+
+proc print data=suicide_rate(obs=5);
+run;
+
+proc means data=suicide_rate n nmiss min max mean maxdec=3;
+*var id HDI_for_year population gdp_per_capita gdp_for_year;
+run;
+
+ods trace on;
+ods select ExtremeObs Quantiles Histogram;
+
+proc univariate data=mylib.suicide_rate;
+id id;
+var suicides_no HDI_for_year gdp_per_capita "suicides/100k pop"n;
+histogram / normal;
+run;
+ods trace off;
+
+ods select ExtremeObs;
+proc univariate data=suicide_rate nextrobs=10;
+id id;
+var suicides_no HDI_for_year gdp_per_capita "suicides/100k pop"n;
+run;
+
+title "listing missing values";
+data _null_;
+set suicide_rate;
+file print;
+if missing(HDI_for_year) then put id=" has missing HDI_for_year";
+if missing(suicides_no) then
+put "Missing or invalid suicides_no for ID " id;
+if missing(gdp_per_capita) then put "Missing or invalid gdp_per_capita for ID " id;
+if missing("suicides/100k pop"n) then put "Missing value for suicides/100k pop " id;
+run;
+
+title "Counting missing values";
+data _null_;
+set suicide_rate(keep=id HDI_for_year suicides_no gdp_per_capita) end=last;
+file print;
+if missing(HDI_for_year) then do;
+N_HDI + 1;
+end;
+if missing(suicides_no) then do;
+N_suicideno + 1;
+end;
+if missing(gdp_per_capita) then do;
+N_gdppercapita + 1;
+end;
+if last then
+put // "Summary of missing values" /
+25*'-' /
+"Number of missing HDI_for_year = " N_HDI /
+"Number of missing suicides_no= " N_suicideno /
+"Number of missing gdp_per_capita = " N_gdppercapita;
+run;
+
+proc contents data=suicide_rate;
+run;
+
+title 'Distribution of HDI_for_year';
+  proc sgplot data=suicide_rate;
+  histogram HDI_for_year;
+  density HDI_for_year;
+run;
+
+title "Box plot of gdp per capita";
+proc sgplot data=suicide_rate;
+   vbox  gdp_per_capita
+;
+run;
+
+
+title "Outliers Based on Interquartile Range";
+proc means data=suicide_rate noprint;
+   var HDI_for_year;
+   output out=Tmp
+          Q1=
+          Q3=
+          QRange= / autoname;
+run;
+
+data _null_;
+   file print;
+   set mylib.suicide_rate(keep=id HDI_for_year);
+   if _n_ = 1 then set Tmp;
+   if HDI_for_year le HDI_for_year_Q1 - 1.5*HDI_for_year_QRange and not missing(HDI_for_year) or
+      HDI_for_year ge HDI_for_year_Q3 + 1.5*HDI_for_year_QRange then
+      put "Possible Outlier for id " id "Value of HDI_for_year is " HDI_for_year;
+run;
+
+title 'Distribution of HDI_for_year';
+  proc sgplot data=suicide_rate;
+  histogram HDI_for_year;
+  density HDI_for_year;
+run;
+
+proc univariate data=suicide_rate;
+   var HDI_for_year suicides_no gdp_per_capita ;
+   qqplot;
+   
+ proc univariate data=suicide_rate;
+ var population;
+ qqplot;
+   
+data suicide_rate;
+   set suicide_rate;
+   population = log( population );
+run;
+
+proc univariate data=suicide_rate;
+   var population;
+   qqplot;
+
+
+
+
+
