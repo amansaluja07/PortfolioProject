@@ -1,0 +1,392 @@
+Importing the required libraries
+
+import pandas as pd 
+import matplotlib.pyplot as plt 
+import seaborn as sns
+import nltk 
+from nltk.corpus import stopwords
+from nltk.tokenize import sent_tokenize, word_tokenize
+from nltk import tokenize
+from sklearn.feature_extraction.text import CountVectorizer
+from nltk.text import Text
+from nltk.collocations import *
+from textblob import TextBlob
+from collections import Counter
+from wordcloud import WordCloud
+from wordcloud import ImageColorGenerator
+import numpy as np 
+from sklearn.linear_model import LogisticRegression
+nltk.download('punkt')
+[nltk_data] Downloading package punkt to /root/nltk_data...
+[nltk_data]   Package punkt is already up-to-date!
+True
+Importing the dataset
+
+df = pd.read_csv('/content/sample_data/project_Reviews.csv')
+df.head() # head() will display the top 5 row in dataset
+Id	ProductId	UserId	ProfileName	HelpfulnessNumerator	HelpfulnessDenominator	Score	Time	Summary	Text
+0	1	B000FFQ1VW	AKXCQP3DLGW7F	A. bauman "Mother, Wife, Artist"	6	6	4	1152230400	For a gluten free bread	This was a keeper. The best I have found so f...
+1	2	B000NZVYF2	A3MLKLD10JSZG9	momtothree	0	0	5	1332806400	Aroma is wonderful	The aroma is wonderful. It came in a large pl...
+2	3	B000NMJWZO	A1CIW5T9HTSODP	Shirley June	0	0	5	1305849600	Pamela's Pancake & Baking Mix is the best!	I enjoy using Pamela's Pancake & Baking Mix be...
+3	4	B0009TMZIM	A3LWIP2I6550TB	X. Nguyen	3	3	5	1297814400	Nice tea set	Purchased these as a gift. I was told by the ...
+4	5	B0017U9VO8	A2912BA68NPCYG	Marly	1	1	5	1265414400	My favorite gluten free food bar	I am gluten intolerant and this bar suits my n...
+Displays the datatypes
+
+df.info()
+<class 'pandas.core.frame.DataFrame'>
+RangeIndex: 20000 entries, 0 to 19999
+Data columns (total 10 columns):
+ #   Column                  Non-Null Count  Dtype 
+---  ------                  --------------  ----- 
+ 0   Id                      20000 non-null  int64 
+ 1   ProductId               20000 non-null  object
+ 2   UserId                  20000 non-null  object
+ 3   ProfileName             20000 non-null  object
+ 4   HelpfulnessNumerator    20000 non-null  int64 
+ 5   HelpfulnessDenominator  20000 non-null  int64 
+ 6   Score                   20000 non-null  int64 
+ 7   Time                    20000 non-null  int64 
+ 8   Summary                 20000 non-null  object
+ 9   Text                    20000 non-null  object
+dtypes: int64(5), object(5)
+memory usage: 1.5+ MB
+Meta Data
+
+Data set name : Amazon Fine Food Reviews
+
+Id : Row Id
+
+UserId : Unqiue identifier for the user
+
+ProfileName : Profile name of the user
+
+HelpfulnessNumerator : Number of users who found the review helpful
+
+HelpfulnessDenominator : Number of users who indicated whether they found the review helpful or not
+
+Score : Rating between 1 and 5
+
+Time : Timestamp for the review
+
+Summary : Brief summary of the review
+
+Text : Text of the review
+
+df.isnull().sum() will displays the count of null values
+
+df.isnull().sum()
+Id                        0
+ProductId                 0
+UserId                    0
+ProfileName               0
+HelpfulnessNumerator      0
+HelpfulnessDenominator    0
+Score                     0
+Time                      0
+Summary                   0
+Text                      0
+dtype: int64
+fig_dims = (6, 4)
+fig, ax = plt.subplots(figsize=fig_dims)
+sns.countplot(x="Score", data=df)
+plt.show()
+
+fig_dims = (30, 4)
+fig, ax = plt.subplots(figsize=fig_dims)
+sns.countplot(x="HelpfulnessNumerator", data=df)
+plt.show()
+
+fig_dims = (30, 4)
+fig, ax = plt.subplots(figsize=fig_dims)
+sns.countplot(x="HelpfulnessDenominator", data=df)
+plt.show()
+
+from matplotlib import rcParams
+plt.matshow(df.corr())
+plt.yticks(range(len(df.corr().columns)), df.columns)
+plt.xticks(range(len(df.corr().columns)), df.columns,rotation=90)
+plt.colorbar()
+plt.title('Correlation Matrix', fontsize=15,pad= 100)
+Text(0.5, 1.05, 'Correlation Matrix')
+
+Data Cleaning
+The practise of repairing or deleting inaccurate, corrupted, improperly formatted, duplicate, or incomplete data from a dataset .
+
+Lower casing
+
+Lower casing step converts the Summary to Lower case.
+
+df['Summary'] = df['Summary'].str.lower()
+df['Summary']
+0                                  for a gluten free bread
+1                                       aroma is wonderful
+2               pamela's pancake & baking mix is the best!
+3                                             nice tea set
+4                         my favorite gluten free food bar
+                               ...                        
+19995              wrong items sent  poor customer service
+19996    filler food is empty, leaves your cat always n...
+19997                                                great
+19998                        bad experience...dissapointed
+19999                                 product as described
+Name: Summary, Length: 20000, dtype: object
+Punctuation removal
+
+The Punctuation step is used to remove all the punctuation from the Summary.
+
+df['Summary'] = df['Summary'].str.replace(r'[^\w\s]+', '')
+df['Summary']
+/usr/local/lib/python3.7/dist-packages/ipykernel_launcher.py:1: FutureWarning: The default value of regex will change from True to False in a future version.
+  """Entry point for launching an IPython kernel.
+0                                  for a gluten free bread
+1                                       aroma is wonderful
+2                  pamelas pancake  baking mix is the best
+3                                             nice tea set
+4                         my favorite gluten free food bar
+                               ...                        
+19995              wrong items sent  poor customer service
+19996    filler food is empty leaves your cat always ne...
+19997                                                great
+19998                           bad experiencedissapointed
+19999                                 product as described
+Name: Summary, Length: 20000, dtype: object
+Removal of stop words
+
+In this step stopwords are being removed. Stopwords are common words that are filtered out before processing a natural language
+
+# download the set of stop words
+nltk.download('stopwords')
+[nltk_data] Downloading package stopwords to /root/nltk_data...
+[nltk_data]   Package stopwords is already up-to-date!
+True
+# creating list of custom stop words
+customStopWords = ['br', 'href']
+useless = stopwords.words('english') + customStopWords
+print(useless)
+['i', 'me', 'my', 'myself', 'we', 'our', 'ours', 'ourselves', 'you', "you're", "you've", "you'll", "you'd", 'your', 'yours', 'yourself', 'yourselves', 'he', 'him', 'his', 'himself', 'she', "she's", 'her', 'hers', 'herself', 'it', "it's", 'its', 'itself', 'they', 'them', 'their', 'theirs', 'themselves', 'what', 'which', 'who', 'whom', 'this', 'that', "that'll", 'these', 'those', 'am', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'having', 'do', 'does', 'did', 'doing', 'a', 'an', 'the', 'and', 'but', 'if', 'or', 'because', 'as', 'until', 'while', 'of', 'at', 'by', 'for', 'with', 'about', 'against', 'between', 'into', 'through', 'during', 'before', 'after', 'above', 'below', 'to', 'from', 'up', 'down', 'in', 'out', 'on', 'off', 'over', 'under', 'again', 'further', 'then', 'once', 'here', 'there', 'when', 'where', 'why', 'how', 'all', 'any', 'both', 'each', 'few', 'more', 'most', 'other', 'some', 'such', 'no', 'nor', 'not', 'only', 'own', 'same', 'so', 'than', 'too', 'very', 's', 't', 'can', 'will', 'just', 'don', "don't", 'should', "should've", 'now', 'd', 'll', 'm', 'o', 're', 've', 'y', 'ain', 'aren', "aren't", 'couldn', "couldn't", 'didn', "didn't", 'doesn', "doesn't", 'hadn', "hadn't", 'hasn', "hasn't", 'haven', "haven't", 'isn', "isn't", 'ma', 'mightn', "mightn't", 'mustn', "mustn't", 'needn', "needn't", 'shan', "shan't", 'shouldn', "shouldn't", 'wasn', "wasn't", 'weren', "weren't", 'won', "won't", 'wouldn', "wouldn't", 'br', 'href']
+# removing stop words from Text
+df['Summary'] = df['Summary'].apply(lambda x: ' '.join([word for word in str(x).split() if word not in (useless)]))
+df['Summary']
+0                                  gluten free bread
+1                                    aroma wonderful
+2                    pamelas pancake baking mix best
+3                                       nice tea set
+4                      favorite gluten free food bar
+                            ...                     
+19995         wrong items sent poor customer service
+19996    filler food empty leaves cat always needing
+19997                                          great
+19998                     bad experiencedissapointed
+19999                              product described
+Name: Summary, Length: 20000, dtype: object
+Tokenization
+
+Tokenization is the process of dividing the original text into tokens, which are words and phrases.
+
+df["Summary"].apply(lambda x: word_tokenize(x))
+0                                    [gluten, free, bread]
+1                                       [aroma, wonderful]
+2                    [pamelas, pancake, baking, mix, best]
+3                                         [nice, tea, set]
+4                      [favorite, gluten, free, food, bar]
+                               ...                        
+19995        [wrong, items, sent, poor, customer, service]
+19996    [filler, food, empty, leaves, cat, always, nee...
+19997                                              [great]
+19998                        [bad, experiencedissapointed]
+19999                                 [product, described]
+Name: Summary, Length: 20000, dtype: object
+DTM
+
+The fundamental stage in the analysis is to create the document term matrix (DTM). DTM is a matrix that displays the number of times a word (term) appears in Each Summary
+
+from nltk import corpus
+corpus= '. '.join(df["Summary"][:15].to_list())
+cv = CountVectorizer()
+sentences = tokenize.sent_tokenize(corpus)
+X = cv.fit(sentences)
+X=cv.transform(sentences)
+df2=pd.DataFrame(X.toarray(), columns = cv.get_feature_names_out())
+df2
+amazon	aroma	baking	bar	bbq	best	bread	chips	coca	cookies	...	pancakes	says	set	taste	tasteless	tea	use	value	whenever	wonderful
+0	0	0	0	0	0	0	1	0	0	0	...	0	0	0	0	0	0	0	0	0	0
+1	0	1	0	0	0	0	0	0	0	0	...	0	0	0	0	0	0	0	0	0	1
+2	0	0	1	0	0	1	0	0	0	0	...	0	0	0	0	0	0	0	0	0	0
+3	0	0	0	0	0	0	0	0	0	0	...	0	0	1	0	0	1	0	0	0	0
+4	0	0	0	1	0	0	0	0	0	0	...	0	0	0	0	0	0	0	0	0	0
+5	1	0	0	0	1	0	0	1	0	0	...	0	0	0	0	0	0	0	0	0	0
+6	0	0	0	0	0	0	0	0	0	0	...	0	0	0	1	0	0	1	0	1	0
+7	0	0	0	0	0	0	0	0	0	0	...	0	1	0	1	0	0	0	1	0	0
+8	0	0	0	0	0	0	0	0	1	0	...	0	0	0	0	0	0	0	0	0	0
+9	0	0	0	0	0	1	0	0	0	0	...	1	0	0	0	0	0	0	0	0	0
+10	0	0	0	0	0	0	0	0	0	0	...	0	0	0	0	0	0	0	0	0	0
+11	0	0	0	0	0	0	0	0	0	0	...	0	0	0	0	0	0	0	0	0	0
+12	0	0	0	0	0	0	0	0	0	0	...	0	0	0	0	0	0	0	0	0	0
+13	0	0	0	0	0	0	0	0	0	1	...	0	0	0	0	0	0	0	0	0	0
+14	0	0	0	0	0	0	0	0	0	0	...	0	0	0	0	1	0	0	0	0	0
+15 rows × 40 columns
+
+Concordance
+
+Concordance locates the searched word in a text and provides the context in which it appears.
+
+corpus= ". ".join(df["Summary"][:100].to_list())
+corpus = word_tokenize(corpus)
+mytext = Text(corpus)
+mytext
+<Text: gluten free bread . aroma wonderful . pamelas...>
+mytext.concordance('food')
+Displaying 3 of 3 matches:
+ nice tea set . favorite gluten free food bar . bbq chips amazon . taste mold 
+ick funky flavor . son loved . great food allergy dogs . liked tea shop . hit 
+lce de leche manjar excellent . good food fishy . really good convenient aspar
+Bigram
+
+Bigram analyses are frequently used to determine which two words frequently appear together.
+
+corpus= " ".join(df["Summary"][:100].to_list())
+corpus = word_tokenize(corpus)
+bigram_measures = nltk.collocations.BigramAssocMeasures()
+finder = BigramCollocationFinder.from_words(corpus)
+print(finder)
+<nltk.collocations.BigramCollocationFinder object at 0x7f6c4e8bd210>
+scored = finder.score_ngrams(bigram_measures.raw_freq)
+print(scored)
+[(('gluten', 'free'), 0.009966777408637873), (('12', 'watch'), 0.0033222591362126247), (('12', 'year'), 0.0033222591362126247), (('16', 'greatest'), 0.0033222591362126247), (('3ounce', 'bags'), 0.0033222591362126247), (('addicted', 'cat'), 0.0033222591362126247), (('additive', 'one'), 0.0033222591362126247), (('allergy', 'dogs'), 0.0033222591362126247), (('alternative', 'delicious'), 0.0033222591362126247), (('amazon', 'taste'), 0.0033222591362126247), (('annie', 'chuns'), 0.0033222591362126247), (('anxiety', 'sleep'), 0.0033222591362126247), (('anyone', 'try'), 0.0033222591362126247), (('aroma', 'wonderful'), 0.0033222591362126247), (('around', 'cant'), 0.0033222591362126247), (('aspartame', 'good'), 0.0033222591362126247), (('awesome', 'yoohoo'), 0.0033222591362126247), (('bad', 'batch'), 0.0033222591362126247), (('bags', 'pack'), 0.0033222591362126247), (('baking', 'mix'), 0.0033222591362126247), (('bar', 'bbq'), 0.0033222591362126247), (('batch', 'stevia'), 0.0033222591362126247), (('bbq', 'chips'), 0.0033222591362126247), (('beans', 'chilean'), 0.0033222591362126247), (('beans', 'ive'), 0.0033222591362126247), (('bear', 'dog'), 0.0033222591362126247), (('best', 'beans'), 0.0033222591362126247), (('best', 'big'), 0.0033222591362126247), (('best', 'gluten'), 0.0033222591362126247), (('best', 'nice'), 0.0033222591362126247), (('best', 'pancakes'), 0.0033222591362126247), (('best', 'sportscycling'), 0.0033222591362126247), (('best', 'tea'), 0.0033222591362126247), (('best', 'vinegar'), 0.0033222591362126247), (('big', 'fan'), 0.0033222591362126247), (('blood', 'pressure'), 0.0033222591362126247), (('bourbon', 'vanilla'), 0.0033222591362126247), (('bowls', 'darn'), 0.0033222591362126247), (('bread', 'aroma'), 0.0033222591362126247), (('breakfast', 'go'), 0.0033222591362126247), (('brown', 'rice'), 0.0033222591362126247), (('buffalo', 'sauce'), 0.0033222591362126247), (('candy', 'orange'), 0.0033222591362126247), (('cans', 'intact'), 0.0033222591362126247), (('cant', 'get'), 0.0033222591362126247), (('carbonated', 'candy'), 0.0033222591362126247), (('cat', 'loves'), 0.0033222591362126247), (('cats', 'lost'), 0.0033222591362126247), (('cats', 'love'), 0.0033222591362126247), (('charlee', 'bear'), 0.0033222591362126247), (('charlie', 'loves'), 0.0033222591362126247), (('chewers', 'super'), 0.0033222591362126247), (('chico', 'loved'), 0.0033222591362126247), (('chilean', 'dulce'), 0.0033222591362126247), (('chips', 'amazon'), 0.0033222591362126247), (('chocolate', 'drink'), 0.0033222591362126247), (('chuns', 'sprouted'), 0.0033222591362126247), (('cinnamon', 'best'), 0.0033222591362126247), (('co', 'carbonated'), 0.0033222591362126247), (('coca', 'makes'), 0.0033222591362126247), (('coffee', 'additive'), 0.0033222591362126247), (('coffee', 'tastes'), 0.0033222591362126247), (('coffee', 'wont'), 0.0033222591362126247), (('colores', 'fantastic'), 0.0033222591362126247), (('convenience', 'know'), 0.0033222591362126247), (('convenient', 'aspartame'), 0.0033222591362126247), (('cookies', 'tasteless'), 0.0033222591362126247), (('cost', 'effective'), 0.0033222591362126247), (('crackers', 'around'), 0.0033222591362126247), (('creampack', '16'), 0.0033222591362126247), (('cup', 'time'), 0.0033222591362126247), (('dad', 'make'), 0.0033222591362126247), (('darn', 'good'), 0.0033222591362126247), (('date', 'cookies'), 0.0033222591362126247), (('dates1', 'wow'), 0.0033222591362126247), (('days', 'summer'), 0.0033222591362126247), (('de', 'coca'), 0.0033222591362126247), (('de', 'leche'), 0.0033222591362126247), (('decaf', 'people'), 0.0033222591362126247), (('delicious', 'annie'), 0.0033222591362126247), (('delicious', 'cans'), 0.0033222591362126247), (('delicious', 'love'), 0.0033222591362126247), (('delicious', 'nutritious'), 0.0033222591362126247), (('delicious', 'perfect'), 0.0033222591362126247), (('disappointed', 'expensive'), 0.0033222591362126247), (('dog', 'says'), 0.0033222591362126247), (('dog', 'treats'), 0.0033222591362126247), (('dogs', 'great'), 0.0033222591362126247), (('dogs', 'liked'), 0.0033222591362126247), (('dogs', 'love'), 0.0033222591362126247), (('doughy', 'safe'), 0.0033222591362126247), (('drink', 'disappointed'), 0.0033222591362126247), (('drinkfor', 'wonderful'), 0.0033222591362126247), (('dry', 'doughy'), 0.0033222591362126247), (('dulce', 'de'), 0.0033222591362126247), (('easy', 'even'), 0.0033222591362126247), (('effective', 'think'), 0.0033222591362126247), (('either', 'sticky'), 0.0033222591362126247), (('enough', 'easy'), 0.0033222591362126247), (('even', 'dad'), 0.0033222591362126247), (('ever', 'best'), 0.0033222591362126247), (('ever', 'bought'), 0.0033222591362126247), (('exactly', 'wanted'), 0.0033222591362126247), (('excellent', 'good'), 0.0033222591362126247), (('excellent', 'great'), 0.0033222591362126247), (('excellent', 'product'), 0.0033222591362126247), (('expensive', 'cost'), 0.0033222591362126247), (('expiration', 'date'), 0.0033222591362126247), (('expiration', 'dates1'), 0.0033222591362126247), (('facts', 'suggested'), 0.0033222591362126247), (('fan', 'excellent'), 0.0033222591362126247), (('fantastic', 'jones'), 0.0033222591362126247), (('fantastic', 'price'), 0.0033222591362126247), (('favorite', 'gluten'), 0.0033222591362126247), (('favorite', 'herbal'), 0.0033222591362126247), (('fishy', 'really'), 0.0033222591362126247), (('flavor', 'convenience'), 0.0033222591362126247), (('flavor', 'son'), 0.0033222591362126247), (('food', 'allergy'), 0.0033222591362126247), (('food', 'bar'), 0.0033222591362126247), (('food', 'fishy'), 0.0033222591362126247), (('free', 'best'), 0.0033222591362126247), (('free', 'bread'), 0.0033222591362126247), (('free', 'crackers'), 0.0033222591362126247), (('free', 'food'), 0.0033222591362126247), (('free', 'trip'), 0.0033222591362126247), (('frozen', 'bad'), 0.0033222591362126247), (('funky', 'flavor'), 0.0033222591362126247), (('get', 'enough'), 0.0033222591362126247), (('go', 'good'), 0.0033222591362126247), (('good', 'convenient'), 0.0033222591362126247), (('good', 'food'), 0.0033222591362126247), (('good', 'good'), 0.0033222591362126247), (('good', 'great'), 0.0033222591362126247), (('good', 'kcup'), 0.0033222591362126247), (('good', 'kick'), 0.0033222591362126247), (('good', 'pasta'), 0.0033222591362126247), (('good', 'tasting'), 0.0033222591362126247), (('grandkids', 'great'), 0.0033222591362126247), (('great', 'alternative'), 0.0033222591362126247), (('great', 'breakfast'), 0.0033222591362126247), (('great', 'buffalo'), 0.0033222591362126247), (('great', 'food'), 0.0033222591362126247), (('great', 'hot'), 0.0033222591362126247), (('great', 'mate'), 0.0033222591362126247), (('great', 'price'), 0.0033222591362126247), (('great', 'quality'), 0.0033222591362126247), (('great', 'taste'), 0.0033222591362126247), (('great', 'tasty'), 0.0033222591362126247), (('greatest', 'worst'), 0.0033222591362126247), (('greenies', 'decaf'), 0.0033222591362126247), (('guilt', 'free'), 0.0033222591362126247), (('gustos', 'colores'), 0.0033222591362126247), (('hawaii', 'gustos'), 0.0033222591362126247), (('healthy', 'tasty'), 0.0033222591362126247), (('heavy', 'chewers'), 0.0033222591362126247), (('helps', '12'), 0.0033222591362126247), (('helps', 'stress'), 0.0033222591362126247), (('herbal', 'tea'), 0.0033222591362126247), (('highest', 'quality'), 0.0033222591362126247), (('hit', 'grandkids'), 0.0033222591362126247), (('hot', 'days'), 0.0033222591362126247), (('hot', 'sauce'), 0.0033222591362126247), (('intact', 'jalapeno'), 0.0033222591362126247), (('item', 'market'), 0.0033222591362126247), (('ive', 'ever'), 0.0033222591362126247), (('jalapeno', 'potato'), 0.0033222591362126247), (('jones', 'soda'), 0.0033222591362126247), (('kcup', 'guilt'), 0.0033222591362126247), (('kick', 'funky'), 0.0033222591362126247), (('kind', 'dry'), 0.0033222591362126247), (('know', 'facts'), 0.0033222591362126247), (('lab', 'dogs'), 0.0033222591362126247), (('lane', 'highest'), 0.0033222591362126247), (('leche', 'manjar'), 0.0033222591362126247), (('licorice', 'tasted'), 0.0033222591362126247), (('liked', 'tea'), 0.0033222591362126247), (('little', 'stale'), 0.0033222591362126247), (('lost', 'weight'), 0.0033222591362126247), (('love', 'flavor'), 0.0033222591362126247), (('love', 'good'), 0.0033222591362126247), (('love', 'greenies'), 0.0033222591362126247), (('love', 'helps'), 0.0033222591362126247), (('love', 'hot'), 0.0033222591362126247), (('love', 'nuggets'), 0.0033222591362126247), (('love', 'toffee'), 0.0033222591362126247), (('love', 'um'), 0.0033222591362126247), (('loved', 'charlee'), 0.0033222591362126247), (('loved', 'great'), 0.0033222591362126247), (('loves', 'addicted'), 0.0033222591362126247), (('loves', 'stuff'), 0.0033222591362126247), (('madagascar', 'bourbon'), 0.0033222591362126247), (('make', 'pricey'), 0.0033222591362126247), (('makes', 'best'), 0.0033222591362126247), (('manjar', 'excellent'), 0.0033222591362126247), (('market', 'great'), 0.0033222591362126247), (('mate', 'de'), 0.0033222591362126247), (('memory', 'lane'), 0.0033222591362126247), (('mix', 'best'), 0.0033222591362126247), (('mold', 'whenever'), 0.0033222591362126247), (('natural', 'taste'), 0.0033222591362126247), (('nice', 'tea'), 0.0033222591362126247), (('nice', 'value'), 0.0033222591362126247), (('nuggets', 'delicious'), 0.0033222591362126247), (('nutritious', 'expiration'), 0.0033222591362126247), (('offend', 'anyone'), 0.0033222591362126247), (('old', 'lab'), 0.0033222591362126247), (('one', 'cup'), 0.0033222591362126247), (('orange', 'creampack'), 0.0033222591362126247), (('pack', '12'), 0.0033222591362126247), (('packaging', 'piece'), 0.0033222591362126247), (('pamelas', 'pancake'), 0.0033222591362126247), (('pancake', 'baking'), 0.0033222591362126247), (('pancakes', 'love'), 0.0033222591362126247), (('pasta', 'fantastic'), 0.0033222591362126247), (('paying', 'yingyang'), 0.0033222591362126247), (('people', 'natural'), 0.0033222591362126247), (('perfect', 'packaging'), 0.0033222591362126247), (('piece', 'hawaii'), 0.0033222591362126247), (('popchips', '3ounce'), 0.0033222591362126247), (('potato', 'popchips'), 0.0033222591362126247), (('pressure', 'wonderful'), 0.0033222591362126247), (('price', 'charlie'), 0.0033222591362126247), (('price', 'healthy'), 0.0033222591362126247), (('pricey', 'cats'), 0.0033222591362126247), (('product', 'exactly'), 0.0033222591362126247), (('product', 'great'), 0.0033222591362126247), (('product', 'sardines'), 0.0033222591362126247), (('quality', 'delicious'), 0.0033222591362126247), (('quality', 'product'), 0.0033222591362126247), (('really', 'good'), 0.0033222591362126247), (('rice', 'bowls'), 0.0033222591362126247), (('safe', 'coffee'), 0.0033222591362126247), (('sardines', 'best'), 0.0033222591362126247), (('sauce', 'awesome'), 0.0033222591362126247), (('sauce', 'excellent'), 0.0033222591362126247), (('says', 'taste'), 0.0033222591362126247), (('set', 'favorite'), 0.0033222591362126247), (('shop', 'hit'), 0.0033222591362126247), (('sleep', 'blood'), 0.0033222591362126247), (('smart', 'dogs'), 0.0033222591362126247), (('smelling', 'madagascar'), 0.0033222591362126247), (('soda', 'co'), 0.0033222591362126247), (('son', 'loved'), 0.0033222591362126247), (('sportscycling', 'drinkfor'), 0.0033222591362126247), (('sprouted', 'brown'), 0.0033222591362126247), (('stale', 'love'), 0.0033222591362126247), (('stale', 'yummy'), 0.0033222591362126247), (('stevia', 'coffee'), 0.0033222591362126247), (('sticky', 'cats'), 0.0033222591362126247), (('stress', 'anxiety'), 0.0033222591362126247), (('stuff', 'used'), 0.0033222591362126247), (('sugar', 'free'), 0.0033222591362126247), (('suggested', 'heavy'), 0.0033222591362126247), (('summer', 'licorice'), 0.0033222591362126247), (('super', 'smart'), 0.0033222591362126247), (('switched', 'great'), 0.0033222591362126247), (('taste', 'chico'), 0.0033222591362126247), (('taste', 'great'), 0.0033222591362126247), (('taste', 'kind'), 0.0033222591362126247), (('taste', 'mold'), 0.0033222591362126247), (('tasted', 'little'), 0.0033222591362126247), (('tasteless', 'delicious'), 0.0033222591362126247), (('tastes', 'good'), 0.0033222591362126247), (('tasting', 'coffee'), 0.0033222591362126247), (('tasty', 'cinnamon'), 0.0033222591362126247), (('tasty', 'sugar'), 0.0033222591362126247), (('tea', 'ever'), 0.0033222591362126247), (('tea', 'love'), 0.0033222591362126247), (('tea', 'set'), 0.0033222591362126247), (('tea', 'shop'), 0.0033222591362126247), (('think', 'stale'), 0.0033222591362126247), (('time', 'tired'), 0.0033222591362126247), (('tired', 'paying'), 0.0033222591362126247), (('toffee', 'best'), 0.0033222591362126247), (('treats', 'great'), 0.0033222591362126247), (('trip', 'memory'), 0.0033222591362126247), (('try', 'frozen'), 0.0033222591362126247), (('um', 'helps'), 0.0033222591362126247), (('use', 'nice'), 0.0033222591362126247), (('used', 'switched'), 0.0033222591362126247), (('value', 'dog'), 0.0033222591362126247), (('vanilla', 'beans'), 0.0033222591362126247), (('vinegar', 'item'), 0.0033222591362126247), (('wanted', 'love'), 0.0033222591362126247), (('watch', 'expiration'), 0.0033222591362126247), (('weight', 'love'), 0.0033222591362126247), (('whenever', 'use'), 0.0033222591362126247), (('wonderful', 'pamelas'), 0.0033222591362126247), (('wonderful', 'product'), 0.0033222591362126247), (('wonderful', 'smelling'), 0.0033222591362126247), (('wont', 'offend'), 0.0033222591362126247), (('worst', 'either'), 0.0033222591362126247), (('wow', 'best'), 0.0033222591362126247), (('year', 'old'), 0.0033222591362126247), (('yingyang', 'delicious'), 0.0033222591362126247), (('yoohoo', 'chocolate'), 0.0033222591362126247), (('yummy', 'favorite'), 0.0033222591362126247)]
+sorted(bigram for bigram, score in scored)[:10]
+[('12', 'watch'),
+ ('12', 'year'),
+ ('16', 'greatest'),
+ ('3ounce', 'bags'),
+ ('addicted', 'cat'),
+ ('additive', 'one'),
+ ('allergy', 'dogs'),
+ ('alternative', 'delicious'),
+ ('amazon', 'taste'),
+ ('annie', 'chuns')]
+Trigram
+
+Trigram analyses are frequently used to determine which three words frequently appear together.
+
+trigram_measures = nltk.collocations.TrigramAssocMeasures()
+finder = TrigramCollocationFinder.from_words(corpus)
+scored = finder.score_ngrams(trigram_measures.raw_freq)
+sorted(bigram for bigram, score in scored)[:10]
+[('12', 'watch', 'expiration'),
+ ('12', 'year', 'old'),
+ ('16', 'greatest', 'worst'),
+ ('3ounce', 'bags', 'pack'),
+ ('addicted', 'cat', 'loves'),
+ ('additive', 'one', 'cup'),
+ ('allergy', 'dogs', 'liked'),
+ ('alternative', 'delicious', 'annie'),
+ ('amazon', 'taste', 'mold'),
+ ('annie', 'chuns', 'sprouted')]
+Word frequency
+
+Here we are finding the top 10 frequent words that occur in the Summary.
+
+Counter(" ".join(df['Summary']).split()).most_common(10)
+[('great', 2532),
+ ('good', 1805),
+ ('best', 1200),
+ ('love', 956),
+ ('coffee', 883),
+ ('tea', 782),
+ ('product', 667),
+ ('delicious', 637),
+ ('taste', 628),
+ ('flavor', 521)]
+Wordclouds
+
+to see the most frequently used words in the Summary.
+
+text = " ".join(i for i in df.Summary)
+wordcloud = WordCloud(stopwords=useless, background_color="black").generate(text)
+plt.figure( figsize=(15,10))
+plt.imshow(wordcloud, interpolation='bilinear')
+plt.axis("off")
+plt.show()
+
+Sentiment polarity
+
+A sentiment polarity score is used to understand the sentiment of the Summary. If the sentiment value is nearer to 1 means a positive sentiment, and values nearer to -1 mean a negative sentiment.
+
+df['sentiment'] = df['Summary'].apply(lambda Summary: TextBlob(Summary).sentiment.polarity)
+df[['Summary','Score','sentiment']].head(15)
+Summary	Score	sentiment
+0	gluten free bread	4	0.40
+1	aroma wonderful	5	1.00
+2	pamelas pancake baking mix best	5	1.00
+3	nice tea set	5	0.60
+4	favorite gluten free food bar	5	0.45
+5	bbq chips amazon	4	0.00
+6	taste mold whenever use	1	0.00
+7	nice value dog says taste great	5	0.70
+8	mate de coca	5	0.00
+9	makes best pancakes	5	1.00
+10	love nuggets	5	0.50
+11	delicious nutritious	5	1.00
+12	expiration date	1	0.00
+13	cookies	2	0.00
+14	tasteless	2	-0.60
+df['sentiment_polarity'] = np.where(df['sentiment'] > 0, 1, -1)
+fig_dims = (6, 4)
+fig, ax = plt.subplots(figsize=fig_dims)
+sns.countplot(x='sentiment_polarity', data=df)
+plt.show()
+
+fig_dims = (10, 4)
+fig, ax = plt.subplots(figsize=fig_dims)
+sns.countplot(hue='sentiment_polarity',x= 'Score', data=df)
+plt.show()
+
+Logistic Regression
+dflr = df[['Summary','sentiment','sentiment_polarity']]
+dflr.head()
+Summary	sentiment	sentiment_polarity
+0	gluten free bread	0.40	1
+1	aroma wonderful	1.00	1
+2	pamelas pancake baking mix best	1.00	1
+3	nice tea set	0.60	1
+4	favorite gluten free food bar	0.45	1
+Split train and test data
+
+index = df.index
+df['random_number'] = np.random.randn(len(index))
+train = df[df['random_number'] <= 0.8]
+test = df[df['random_number'] > 0.8]
+Count vectorizer:
+
+from sklearn.feature_extraction.text import CountVectorizer
+vectorizer = CountVectorizer(token_pattern=r'\b\w+\b')
+train_matrix = vectorizer.fit_transform(train['Summary'])
+test_matrix = vectorizer.transform(test['Summary'])
+Split target and independent variables
+
+x_train = train_matrix
+x_test = test_matrix
+y_train = train['sentiment_polarity'].astype('int')
+y_test = test['sentiment_polarity'].astype('int')
+Logistic Regression
+
+lr = LogisticRegression()
+lr.fit(x_train,y_train)
+LogisticRegression()
+predictions = lr.predict(x_test)
+Precision, Recall , Accuracy
+
+from sklearn.metrics import confusion_matrix,classification_report
+new = np.asarray(y_test)
+confusion_matrix(predictions,y_test)
+array([[1802,  101],
+       [  27, 2392]])
+print(classification_report(predictions,y_test))
+              precision    recall  f1-score   support
+
+          -1       0.99      0.95      0.97      1903
+           1       0.96      0.99      0.97      2419
+
+    accuracy                           0.97      4322
+   macro avg       0.97      0.97      0.97      4322
+weighted avg       0.97      0.97      0.97      4322
